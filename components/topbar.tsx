@@ -180,7 +180,7 @@ const runQuick = (label: string) => sendMessage(label)
 
         {/* Title */}
         <div className="flex items-center gap-2 md:gap-3">
-          <span className="font-semibold tracking-tight">St. Mary&apos;s Hospital</span>
+          <span className="font-semibold tracking-tight">Sengkang General Hospital</span>
         </div>
 
         {/* Right controls */}
