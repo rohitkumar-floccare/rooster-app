@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Settings2,
   UsersRound,
+  Activity,
 } from "lucide-react"
 import { useSidebar } from "./sidebar-context"
 
@@ -27,66 +28,91 @@ const items = [
 
 function DesktopSidebar() {
   const { isCollapsed } = useSidebar()
-  const widthClass = isCollapsed ? "md:w-[72px]" : "md:w-[240px]"
   const pathname = usePathname()
+
+  // fixed widths so clicking list items never changes the sidebar width
+  const widthClass = isCollapsed ? "md:w-[72px]" : "md:w-[240px]"
 
   return (
     <aside
       className={cn(
-        "hidden md:block shrink-0 h-dvh border-r bg-card transition-[width] duration-300 ease-in-out",
-        widthClass,
+        // remove width transition on click; only animate when collapsed state changes
+        "hidden md:block shrink-0 h-dvh border-r bg-card ease-in-out",
+        widthClass
       )}
       aria-label="Primary"
     >
-      <div className="px-4 py-5 flex items-center gap-3">
-        {/* brand icon */}
-        <Image
-          src="/images/brand-icon.png"
-          alt="App logo"
-          width={32}
-          height={32}
-          className="h-8 w-8 rounded-md object-contain ring-1 ring-border"
-          priority
-        />
-        <div className={cn("text-sm transition-opacity duration-200", isCollapsed && "opacity-0 pointer-events-none")}>
-          <div className="font-medium">Swap Manager</div>
-          <div className="text-muted-foreground">Daily Adjustments</div>
+      {/* Brand row */}
+      <div className={cn("px-4 py-5 flex items-center", isCollapsed ? "justify-center gap-0" : "gap-3")}>
+        <div className="grid h-8 w-8 place-items-center rounded-md ring-1 ring-border bg-foreground text-background">
+          <Activity className="h-5 w-5" aria-hidden="true" />
         </div>
-        {/* previously a Button with <ChevronsLeftRight /> lived here */}
-      </div>
-      <nav className="px-2 pb-6">
-        <ul className="space-y-1.5">
-          {items.map((item) => {
-            const Icon = item.icon
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
 
-            return (
-              <li key={item.label}>
-                <Link
-                  href={item.href}
-                  aria-label={item.label}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                    active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span
+        {/* hide brand text entirely when collapsed so it doesn't occupy width */}
+        {!isCollapsed && (
+          <div className="text-sm">
+            <div className="font-medium">Swap Manager</div>
+            <div className="text-muted-foreground">Daily Adjustments</div>
+          </div>
+        )}
+      </div>
+
+      {/* Nav */}
+      {!isCollapsed ? (
+        // OPEN (unchanged styling)
+        <nav className="px-2 pb-6">
+          <ul className="space-y-1.5">
+            {items.map((item) => {
+              const Icon = item.icon
+              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+              return (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    aria-label={item.label}
                     className={cn(
-                      "transition-all duration-200",
-                      isCollapsed
-                        ? "max-w-0 overflow-hidden opacity-0 pointer-events-none select-none"
-                        : "max-w-[200px] opacity-100",
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+                    <Icon className="h-4 w-4" />
+                    <span className="max-w-[200px]">{item.label}</span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+      ) : (
+        // COLLAPSED (replicates screenshot behavior)
+        <nav className="pb-6">
+          <ul className="flex flex-col items-center gap-2">
+            {items.map((item) => {
+              const Icon = item.icon
+              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+
+              return (
+                <li key={item.label} className="w-full flex justify-center">
+                  <Link
+                    href={item.href}
+                    title={item.label}
+                    aria-label={item.label}
+                    // square icon button centered; black when active
+                    className={cn(
+                      "grid place-items-center h-12 w-12 rounded-2xl transition-colors",
+                      active
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+      )}
     </aside>
   )
 }
@@ -101,7 +127,7 @@ function MobileDrawer() {
       <div
         className={cn(
           "fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden",
-          isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
+          isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
         aria-hidden="true"
         onClick={closeMobile}
@@ -110,27 +136,23 @@ function MobileDrawer() {
       <aside
         className={cn(
           "fixed left-0 top-0 bottom-0 z-50 w-[260px] border-r bg-card p-4 md:hidden transition-transform duration-300 ease-in-out",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         role="dialog"
         aria-modal="true"
         aria-label="Mobile Navigation"
       >
         <div className="mb-4 flex items-center gap-3">
-          {/* brand icon */}
-          <Image
-            src="/images/brand-icon.png"
-            alt="App logo"
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-md object-contain ring-1 ring-border"
-            priority
-          />
+          <div className="grid h-8 w-8 place-items-center rounded-md ring-1 ring-border bg-foreground text-background">
+            <Activity className="h-5 w-5" aria-hidden="true" />
+          </div>
+
           <div className="text-sm">
             <div className="font-medium">Swap Manager</div>
             <div className="text-muted-foreground">Daily Adjustments</div>
           </div>
         </div>
+
         <nav className="px-1">
           <ul className="space-y-1.5">
             {items.map((item) => {
@@ -143,9 +165,7 @@ function MobileDrawer() {
                     onClick={closeMobile}
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                      active
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                      active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -164,9 +184,7 @@ function MobileDrawer() {
 export function AppSidebar() {
   return (
     <>
-      {/* Desktop collapsible sidebar */}
       <DesktopSidebar />
-      {/* Mobile drawer */}
       <MobileDrawer />
     </>
   )

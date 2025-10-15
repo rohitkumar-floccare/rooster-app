@@ -7,18 +7,17 @@ import {
   Check,
   Edit3,
   MoreHorizontal,
-  Search,
   ShieldHalf,
   TriangleAlert,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ManualAdjustmentModal } from "./ManualAdjustmentModal"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Person = {
@@ -126,9 +125,12 @@ function PersonPill({ p }: { p: Person }) {
 }
 
 export function ManualAdjustments() {
-  const [query, setQuery] = useState("")
+  // keep query state for filtering logic; we just don't render an input
+  const [query] = useState("")
   const [statusTab, setStatusTab] = useState<"pending" | "approved" | "resolved" | "all">("pending")
   const [dept, setDept] = useState("all")
+  const [showModal, setShowModal] = useState(false)
+
 
   const kpis = useMemo(() => {
     return {
@@ -159,24 +161,16 @@ export function ManualAdjustments() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Manual Adjustments</h1>
-        <p className="text-sm text-muted-foreground">Special cases and rule overrides requiring manual intervention</p>
-      </header>
-
-      {/* Tabs + KPI + CTA */}
+      {/* Header (left) + KPIs & CTA (right) */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as any)}>
-          <TabsList className="grid w-full grid-cols-4 md:w-auto">
-            <TabsTrigger value="pending">Pending ({kpis.pending})</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-            <TabsTrigger value="resolved">Resolved</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <header className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Manual Adjustments</h1>
+          <p className="text-sm text-muted-foreground">
+            Special cases and rule overrides requiring manual intervention
+          </p>
+        </header>
 
-        <div className="flex flex-wrap items-center gap-6 text-sm">
+        <div className="flex w-full flex-wrap items-center gap-6 text-sm md:w-auto">
           <div className="flex items-center gap-2">
             <span className="text-amber-500">
               <AlertTriangle className="h-4 w-4" />
@@ -198,28 +192,30 @@ export function ManualAdjustments() {
             <span className="text-muted-foreground">Approved:</span>
             <span className="font-medium text-foreground">{kpis.approved}</span>
           </div>
-          <Button className="ml-auto md:ml-0">
+
+          <Button
+            className="ml-auto md:ml-0 bg-blue-500 text-white hover:bg-blue-600"
+            onClick={() => setShowModal(true)}
+          >
             <Edit3 className="mr-2 h-4 w-4" />
             New Override
           </Button>
         </div>
       </div>
 
-      {/* Filters: search + department */}
-      <div className="grid gap-3 md:grid-cols-[1fr,220px]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by nurse, department, or ID..."
-            className="pl-9"
-            aria-label="Search manual adjustments"
-          />
-        </div>
+      {/* Tabs (left) + Department filter (right). No search bar. */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as any)}>
+          <TabsList className="grid w-full grid-cols-4 md:w-auto">
+            <TabsTrigger value="pending">Pending ({kpis.pending})</TabsTrigger>
+            <TabsTrigger value="approved">Approved</TabsTrigger>
+            <TabsTrigger value="resolved">Resolved</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <Select value={dept} onValueChange={setDept}>
-          <SelectTrigger aria-label="Filter by department">
+          <SelectTrigger className="w-full md:w-[220px]" aria-label="Filter by department">
             <SelectValue placeholder="All Departments" />
           </SelectTrigger>
           <SelectContent>
@@ -316,6 +312,8 @@ export function ManualAdjustments() {
           </div>
         </div>
       </div>
+
+    <ManualAdjustmentModal open={showModal} onClose={() => setShowModal(false)} />
     </div>
   )
 }

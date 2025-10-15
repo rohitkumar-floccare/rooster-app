@@ -1,13 +1,23 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { AlertTriangle, ChevronRight, Search, ShieldAlert } from "lucide-react"
+import {
+  AlertTriangle,
+  ChevronRight,
+  Heart,
+  ListChecks,
+  Search,
+  Shield,
+  ShieldAlert,
+  Plus,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { AddRuleModal } from "./RuleModal"
 
 type Rule = {
   id: string
@@ -118,17 +128,27 @@ function categoryBadgeLabel(cat: Rule["category"]) {
   }
 }
 
-function severityBadgeStyle(sev: Rule["severity"]) {
-  // semantic emphasis without hardcoding raw colors
-  if (sev === "high") return "bg-destructive/15 text-destructive"
-  if (sev === "medium") return "bg-muted text-foreground/70"
-  return "bg-muted text-foreground/60"
+function severityTone(sev: Rule["severity"]) {
+  if (sev === "high") return "text-destructive"
+  if (sev === "medium") return "text-foreground/70"
+  return "text-foreground/60"
 }
 
 export default function RulesPolicies() {
   const [query, setQuery] = useState("")
   const [activeTab, setActiveTab] = useState<TabKey>("all")
   const [rows, setRows] = useState<Rule[]>(RULES_SEED)
+  const [showModal, setShowModal] = useState(false)
+
+
+  const counts = useMemo(
+    () => ({
+      all: rows.length,
+      hard: rows.filter((r) => r.isHard).length,
+      soft: rows.filter((r) => !r.isHard).length,
+    }),
+    [rows],
+  )
 
   const totalViolations = useMemo(() => rows.reduce((sum, r) => sum + r.violations, 0), [rows])
 
@@ -154,86 +174,138 @@ export default function RulesPolicies() {
 
   return (
     <main className="flex flex-col gap-6 p-4 md:p-6">
-      {/* Header */}
-      <section className="flex flex-col gap-2">
-        <h1 className="text-2xl md:text-3xl font-semibold text-balance">Rules & Policies</h1>
-        <p className="text-sm text-muted-foreground">Manage scheduling rules and compliance requirements</p>
-      </section>
+      {/* Title + Subheader */}
+      <section className="py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Left: title + subtitle (stacked) */}
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">
+              Rules & Policies
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Manage scheduling rules and compliance requirements
+            </p>
+          </div>
 
-      {/* KPI and actions */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-              <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
-              <span className="text-sm">{totalViolations} violations</span>
+          {/* Right: KPI + primary action (wraps on small, inline on sm+) */}
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+            <span className="inline-flex items-center gap-2 rounded-full bg-rose-500/10 px-3 py-1.5 text-sm text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="truncate">{totalViolations} violations</span>
+            </span>
+            <Button
+              className="w-full sm:w-auto gap-2 bg-foreground text-background hover:bg-foreground/90"
+              aria-label="Add Rule"
+              onClick={() => setShowModal(true)}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="sm:whitespace-nowrap">Add Rule</span>
             </Button>
           </div>
-          <Button className="gap-2">
-            <ShieldAlert className="size-4" aria-hidden="true" />
-            Add Rule
-          </Button>
         </div>
+      </section>
 
-        {/* Search */}
+      {/* Search (pill) */}
+      <section>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search rules and policies..."
-            className="pl-9"
             aria-label="Search rules and policies"
+            className="h-11 w-full rounded-full border-0 bg-muted/60 pl-10 shadow-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-muted/40"
           />
         </div>
+      </section>
 
-        {/* Segmented filter */}
+      {/* Segmented Tabs */}
+      <section>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <TabsList className="grid grid-cols-3 w-full md:w-auto">
-            <TabsTrigger value="all" className="px-6">
-              All ({rows.length})
+          <TabsList className="grid w-full grid-cols-3 rounded-full bg-muted/60 p-1 dark:bg-muted/40 md:w-auto md:min-w-[520px]">
+            <TabsTrigger
+              value="all"
+              className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              All ({counts.all})
             </TabsTrigger>
-            <TabsTrigger value="hard" className="px-6">
-              Hard ({rows.filter((r) => r.isHard).length})
+            <TabsTrigger
+              value="hard"
+              className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Hard ({counts.hard})
             </TabsTrigger>
-            <TabsTrigger value="soft" className="px-6">
-              Soft ({rows.filter((r) => !r.isHard).length})
+            <TabsTrigger
+              value="soft"
+              className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Heart className="mr-2 h-4 w-4" />
+              Soft ({counts.soft})
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </section>
+
+      {/* Context band (changes with tab like in the mock) */}
+      {activeTab !== "all" && (
+        <section>
+          <div className="rounded-xl border bg-card px-4 py-3 text-sm">
+            {activeTab === "soft" ? (
+              <div className="flex items-center gap-2">
+                <Heart className="h-4 w-4 text-pink-500" />
+                <span className="font-medium">Soft Rules</span>
+                <span className="text-muted-foreground">
+                  Preferences & fairness – can be violated if necessary
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                <span className="font-medium">Hard Rules</span>
+                <span className="text-muted-foreground">
+                  Compliance & safety – must always be met
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Rules list */}
       <section className="flex flex-col gap-3">
         {filtered.map((rule) => (
           <Card key={rule.id} className="rounded-xl">
             <CardContent className="p-4 md:p-5">
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] items-center gap-4">
-                {/* Left: title + meta */}
+              <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-[1fr_auto_auto]">
+                {/* Title + Meta */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-base md:text-lg truncate">{rule.title}</h3>
+                    <h3 className="truncate text-base font-medium md:text-lg">{rule.title}</h3>
                     <Badge variant="secondary" className="capitalize">
                       {categoryBadgeLabel(rule.category)}
                     </Badge>
                     {rule.violations > 0 && (
-                      <Badge className="bg-destructive/15 text-destructive">{rule.violations} violations</Badge>
+                      <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-300">
+                        {rule.violations} violations
+                      </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{rule.description}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{rule.description}</p>
                 </div>
 
-                {/* Middle: severity */}
-                <div className="justify-self-start md:justify-self-center">
-                  <span className={`text-xs px-3 py-1 rounded-full ${severityBadgeStyle(rule.severity)}`}>
+                {/* Severity (as plain tone on the right like mock) */}
+                <div className="justify-self-start text-sm md:justify-self-center">
+                  <span className={`capitalize ${severityTone(rule.severity)}`}>
                     {rule.severity}
                   </span>
                 </div>
 
-                {/* Right: toggle + chevron */}
-                <div className="flex items-center gap-3 justify-self-end">
+                {/* Toggle + Chevron */}
+                <div className="flex items-center justify-self-end gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
                       {rule.isHard ? "hard" : "soft"}
                     </span>
                     <Switch
@@ -243,7 +315,7 @@ export default function RulesPolicies() {
                     />
                   </div>
                   <Button variant="ghost" size="icon" aria-label="Open details">
-                    <ChevronRight className="size-4" />
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -252,9 +324,12 @@ export default function RulesPolicies() {
         ))}
 
         {filtered.length === 0 && (
-          <div className="text-sm text-muted-foreground py-8 text-center">No rules match your filters.</div>
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            No rules match your filters.
+          </div>
         )}
       </section>
+      <AddRuleModal open={showModal} onClose={() => setShowModal(false)} />
     </main>
   )
 }

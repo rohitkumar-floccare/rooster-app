@@ -1,81 +1,129 @@
-import * as React from 'react'
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
 
-import { cn } from '@/lib/utils'
+type Density = "normal" | "compact"
 
-function Card({ className, ...props }: React.ComponentProps<'div'>) {
+const CardCtx = React.createContext<{ density: Density }>({ density: "normal" })
+const useCardDensity = () => React.useContext(CardCtx).density
+
+const cardVariants = cva(
+  "bg-card text-card-foreground border", // neutral base
+  {
+    variants: {
+      variant: {
+        panel: "rounded-xl shadow-sm",
+        // rounded like the mock; lighter border; no shadow
+        tile: "rounded-[18px] shadow-none",
+        plain: "rounded-none border-none shadow-none bg-transparent",
+      },
+      interactive: {
+        true: "transition-shadow hover:shadow-md",
+        false: "",
+      },
+    },
+    defaultVariants: {
+      variant: "panel",
+      interactive: false,
+    },
+  }
+)
+
+type CardProps = React.ComponentProps<"div"> &
+  VariantProps<typeof cardVariants> & {
+    density?: Density
+  }
+
+function Card({
+  className,
+  variant,
+  interactive,
+  density = "normal",
+  ...props
+}: CardProps) {
   return (
-    <div
-      data-slot="card"
-      className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm',
-        className,
-      )}
-      {...props}
-    />
+    <CardCtx.Provider value={{ density }}>
+      <div
+        data-slot="card"
+        data-variant={variant}
+        data-density={density}
+        className={cn(
+          cardVariants({ variant, interactive }),
+          variant === "tile" && "border-neutral-200 dark:border-neutral-800",
+          className
+        )}
+        {...props}
+      />
+    </CardCtx.Provider>
   )
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
+function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+  const density = useCardDensity()
   return (
     <div
       data-slot="card-header"
-      className={cn(
-        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
-        className,
-      )}
+      className={cn(density === "compact" ? "px-4 pt-3" : "px-6 pt-5", className)}
       {...props}
     />
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn('leading-none font-semibold', className)}
+      className={cn("font-semibold leading-none", className)}
       {...props}
     />
   )
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn('text-muted-foreground text-sm', className)}
+      className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
   )
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
+function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="card-action" className={cn("ml-auto", className)} {...props} />
+}
+
+/* -----------------------------------------------------------
+   ONLY CHANGE: make Stat card layout stack on small screens.
+   It targets the immediate child that's a
+   'div.flex.items-center.justify-between' (your Stat’s wrapper),
+   turning it into a column and pushing the right block (icon) down.
+   Other cards (e.g., roster header "justify-end") are unaffected.
+----------------------------------------------------------- */
+function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+  const density = useCardDensity()
   return (
     <div
-      data-slot="card-action"
+      data-slot="card-content"
       className={cn(
-        'col-start-2 row-span-2 row-start-1 self-start justify-self-end',
-        className,
+        density === "compact" ? "px-4 pb-3" : "px-6 pb-5",
+        // mobile-only stacking for Stat cards
+        "max-sm:[&>div.flex.items-center.justify-between]:flex-col",
+        "max-sm:[&>div.flex.items-center.justify-between]:items-start",
+        "max-sm:[&>div.flex.items-center.justify-between>div:last-child]:mt-3",
+        className
       )}
       {...props}
     />
   )
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn('px-6', className)}
-      {...props}
-    />
-  )
-}
-
-function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
+function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+  const density = useCardDensity()
   return (
     <div
       data-slot="card-footer"
-      className={cn('flex items-center px-6 [.border-t]:pt-6', className)}
+      className={cn(density === "compact" ? "px-4 pt-3" : "px-6 pt-5", className)}
       {...props}
     />
   )
