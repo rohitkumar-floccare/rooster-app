@@ -1,55 +1,72 @@
-import type { NextRequest } from "next/server"
-import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
+import path from "path";
+import fs from "fs";
 
-type ChatMsg = { role: "user" | "assistant"; text: string }
+type ChatMsg = { role: "user" | "assistant"; text: string };
 
-export async function POST(req: NextRequest) {
-  const { messages }: { messages: ChatMsg[] } = await req.json()
+let rosterData: any[] | null = null;
 
-  if (!messages || !Array.isArray(messages)) {
-    return NextResponse.json({ error: "No messages provided or invalid format" }, { status: 400 })
+function loadRosterData() {
+  if (rosterData) return rosterData;
+
+  try {
+    const filePath = path.join(process.cwd(), "app", "api", "roster", "sample roster.xlsx");
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    rosterData = XLSX.utils.sheet_to_json(sheet);
+  } catch (err) {
+    rosterData = [];
   }
+
+  return rosterData;
+}
 
 const quickActionAnswers: Record<string, string> = {
   "Check Coverage":
-    "Use this feature to review staffing coverage across departments, shifts, or specific weekends. It automatically identifies gaps, highlights overstaffed or understaffed areas, and ensures compliance with defined coverage rules.",
-    
+    "Review staffing coverage across all departments and shifts. It identifies gaps and ensures fair distribution.",
   "Optimize Schedule":
-    "This feature intelligently analyzes the current roster to balance workloads, distribute shifts fairly across staff levels, and ensure optimal coverage for all departments based on hospital guidelines.",
-    
+    "Analyzes the current roster to balance workloads and improve shift fairness.",
   "Compliance Audit":
-    "Run a compliance audit to verify that your roster aligns with hospital staffing policies, labor regulations, and contractual obligations. The system will flag any conflicts or rule violations for your review.",
-    
+    "Checks for any violations like insufficient rest or overbooked shifts.",
   "Generate Report":
-    "Generate detailed, exportable reports summarizing staff allocations, coverage trends, weekend rotations, and compliance metrics. These reports support informed decision-making and audit readiness.",
-    
+    "Generates a summary of staff allocation, coverage, and shift balance.",
   "Swap Request":
-    "This feature enables staff to request and manage shift swaps with eligible colleagues. The system validates each swap request against scheduling rules to maintain fairness, balance, and compliance.",
-    
+    "Allows staff to request shift swaps and validates them against compliance rules.",
   "Manual Adjustments":
-    "Authorized users can make direct edits to the roster, such as reassigning shifts, adding new staff, or handling exceptions. Every change is tracked to maintain transparency and version control."
+    "Admins can directly edit the roster for exceptions or emergency reassignments.",
 };
 
+export async function POST(req: NextRequest) {
+  const { messages }: { messages: ChatMsg[] } = await req.json();
 
-  const lastMessage = messages[messages.length - 1]
-  if (lastMessage.role === "user" && quickActionAnswers[lastMessage.text]) {
-    return NextResponse.json({ reply: quickActionAnswers[lastMessage.text] })
+  if (!messages || !Array.isArray(messages)) {
+    return NextResponse.json({ error: "Invalid message format" }, { status: 400 });
   }
 
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role === "user" && quickActionAnswers[lastMessage.text]) {
+    return NextResponse.json({ reply: quickActionAnswers[lastMessage.text] });
+  }
+
+  const roster = loadRosterData();
+
+  const rosterPreview = JSON.stringify(roster.slice(0, 100), null, 2);
+
   const systemPrompt = `
-You are the AI Copilot for St. Mary's Hospital Nurse Rostering App.
+You are the AI Copilot for Sengkang General Hospital's Nurse Rostering System.
 
-Your responses MUST be:
-- Relevant only to hospital rostering, staff schedules, coverage, swaps, compliance, shifts, and rules.
-- Actionable, friendly, and human-readable.
-- Avoid unrelated topics, opinions, or generic answers.
-- Follow all rules for IPS weekend, PH roster, ND (Night Duty), ED shifts, and staff exceptions.
+Use the following roster data to answer questions about schedules, shifts, duties, coverage, and compliance.
 
-If you do not have enough information to give exact staff names, provide guidance based on rules and suggest next steps (e.g., check roster or contact admin).
-`
+If data is incomplete, respond with logical scheduling guidance and suggest next steps.
+
+Here is a sample of the loaded roster data (first 10 rows):
+${rosterPreview}
+`;
 
   try {
-    // --- Send user messages to OpenAI GPT ---
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -57,22 +74,20 @@ If you do not have enough information to give exact staff names, provide guidanc
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages.map((m) => ({ role: m.role, content: m.text })),
         ],
         temperature: 0.7,
       }),
-    })
+    });
 
-    const data = await response.json()
-    console.log("OpenAI raw response:", data)
-
-    const aiReply = data.choices?.[0]?.message?.content ?? "No response from AI."
-    return NextResponse.json({ reply: aiReply })
+    const data = await response.json();
+    const aiReply = data.choices?.[0]?.message?.content ?? "No response from AI.";
+    return NextResponse.json({ reply: aiReply });
   } catch (err) {
-    console.error("OpenAI API error:", err)
-    return NextResponse.json({ reply: "AI API error occurred." }, { status: 500 })
+    console.error("OpenAI API error:", err);
+    return NextResponse.json({ reply: "AI API error occurred." }, { status: 500 });
   }
 }
